@@ -109,25 +109,121 @@ export default {
     group.add(rightPivot)
 
     // -----------------------------------------------------------------------
-    // 2. HOLI — Explosion brève de poudre jetée vers l'écran puis disparition
+    // 2. HOLI — Fumée de poudre colorée qui apparaît et disparaît sur place
     // -----------------------------------------------------------------------
-    const holiTex = loadTex('assets/poudre-holi.png')
-    const holiOrigin = toAffiche(0.7369, 0.4035, 0.022)
+    const smokeVertexShader = /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `
 
-    // 3 gerbes de poudre jetées vers l'écran : grossissent juste au-dessus du texte puis partent loin au vent vers la droite
-    const holiBursts = [
-      {delay: 0.00, dx: -0.06, dy: 0.05, dz: 0.34, windX: 0.78, rot: 0.10, maxScale: 1.55, maxOp: 0.86},
-      {delay: 0.08, dx: -0.14, dy: 0.13, dz: 0.28, windX: 0.68, rot: -0.14, maxScale: 1.38, maxOp: 0.78},
-      {delay: 0.16, dx: -0.02, dy: -0.04, dz: 0.38, windX: 0.88, rot: 0.18, maxScale: 1.68, maxOp: 0.72},
+    const smokeFragmentShader = /* glsl */ `
+      precision highp float;
+      uniform float uTime;
+      uniform float uOpacity;
+      uniform float uDissolve;
+      uniform float uSeed;
+      uniform vec3 uColorCore;
+      uniform vec3 uColorEdge;
+      varying vec2 vUv;
+
+      float hash(vec2 p) {
+        p = fract(p * vec2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return fract(p.x * p.y);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      }
+
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        mat2 rot = mat2(0.80, -0.60, 0.60, 0.80);
+        for (int i = 0; i < 5; i++) {
+          v += a * noise(p);
+          p = rot * p * 2.04 + vec2(1.7, 9.2);
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        vec2 uv = vUv - 0.5;
+        vec2 p = uv * 3.8 + vec2(uSeed * 11.3, uSeed * 7.1);
+
+        // Volutes internes de fumée (domain warping) sans déplacer le nuage
+        vec2 q = vec2(
+          fbm(p + vec2(0.0, -uTime * 0.34)),
+          fbm(p + vec2(5.2, 1.3 - uTime * 0.26))
+        );
+        vec2 r = vec2(
+          fbm(p + 2.3 * q + vec2(1.7, 9.2 - uTime * 0.40)),
+          fbm(p + 2.3 * q + vec2(8.3, 2.8 + uTime * 0.16))
+        );
+        float n = fbm(p + 2.1 * r - vec2(0.0, uTime * 0.30));
+
+        float dist = length(uv * vec2(1.0, 1.08));
+        float edgeWarp = (q.x - 0.5) * 0.14 + (n - 0.5) * 0.12;
+        float hardEdge = 1.0 - smoothstep(0.35, 0.49, dist);
+        float mask = (1.0 - smoothstep(0.12, 0.44, dist + edgeWarp)) * hardEdge;
+
+        float smoke = smoothstep(0.16 + uDissolve * 0.55, 0.82, n * 0.85 + 0.32 * mask);
+        float alpha = mask * smoke * uOpacity;
+        if (alpha < 0.005) discard;
+
+        float coreMix = clamp(mask * n * 1.35, 0.0, 1.0);
+        vec3 col = mix(uColorEdge, uColorCore, coreMix);
+        col += vec3(0.08, 0.06, 0.04) * smoothstep(0.55, 0.90, r.x) * (1.0 - coreMix * 0.5);
+
+        gl_FragColor = vec4(col, alpha);
+        #include <colorspace_fragment>
+      }
+    `
+
+    // 5 panaches superposés (rose, orange, jaune, vert + brume centrale) fixes au-dessus du bol
+    const holiPlumes = [
+      {x: 0.655, y: 0.325, z: 0.026, w: 0.25, h: 0.24, delay: 0.00, seed: 1.3, core: '#d81b60', edge: '#ff6090', maxOp: 0.84},
+      {x: 0.715, y: 0.305, z: 0.034, w: 0.25, h: 0.24, delay: 0.07, seed: 3.7, core: '#ef6c00', edge: '#ffa726', maxOp: 0.80},
+      {x: 0.768, y: 0.298, z: 0.042, w: 0.26, h: 0.24, delay: 0.12, seed: 6.1, core: '#f9a825', edge: '#ffe066', maxOp: 0.78},
+      {x: 0.825, y: 0.328, z: 0.030, w: 0.24, h: 0.23, delay: 0.05, seed: 8.9, core: '#558b2f', edge: '#8bc34a', maxOp: 0.78},
+      {x: 0.738, y: 0.292, z: 0.050, w: 0.34, h: 0.26, delay: 0.15, seed: 12.4, core: '#ff7043', edge: '#ffd180', maxOp: 0.56},
     ].map((cfg, idx) => {
-      const plane = makePlane('assets/poudre-holi.png', 0.35, 660 / 792, {
-        tex: holiTex,
-        opacity: 0,
-        renderOrder: 24 + idx,
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: smokeVertexShader,
+        fragmentShader: smokeFragmentShader,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uTime: {value: 0},
+          uOpacity: {value: 0},
+          uDissolve: {value: 0.5},
+          uSeed: {value: cfg.seed},
+          uColorCore: {value: new THREE.Color(cfg.core)},
+          uColorEdge: {value: new THREE.Color(cfg.edge)},
+        },
       })
-      plane.mesh.visible = false
-      group.add(plane.mesh)
-      return {...plane, cfg}
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(cfg.w * AFFICHE_W, cfg.h * AFFICHE_H),
+        mat,
+      )
+      const origin = toAffiche(cfg.x, cfg.y, cfg.z)
+      mesh.position.copy(origin)
+      mesh.renderOrder = 24 + idx
+      mesh.visible = false
+      group.add(mesh)
+      return {mesh, mat, origin, cfg}
     })
 
     // -----------------------------------------------------------------------
@@ -180,8 +276,7 @@ export default {
       leftLantern,
       rightPivot,
       rightLantern,
-      holiOrigin,
-      holiBursts,
+      holiPlumes,
       stars,
     }
   },
@@ -195,7 +290,7 @@ export default {
     const id = ctx.target || 'main'
     const s = ctx.state.scenes?.[id]
     if (!s) return
-    // Relance une nouvelle explosion de poudre de Holi vers l'écran
+    // Relance une apparition de fumée colorée de Holi sur place
     s.holiBurstStart = s.lastT
     s.holiParticlesHidden = false
     const pBrick = ctx.bricks.get('poudre-particules')
@@ -238,7 +333,7 @@ export default {
     s.leftLantern.mat.opacity = fadeIn
     s.rightLantern.mat.opacity = fadeIn
 
-    // 3. Holi : explosion vers l'écran toutes les 5 s (~2,5 s d'animation puis ~2,5 s de pause nette)
+    // 3. Holi : fumée colorée fixe qui apparaît et disparaît en douceur toutes les 5 s
     if (t - (s.holiBurstStart ?? t) >= HOLI_REPEAT_INTERVAL) {
       s.holiBurstStart = t
       s.holiParticlesHidden = false
@@ -247,43 +342,36 @@ export default {
       ctx.bricks.show('poudre-particules')
     }
     const elapsedBurst = t - (s.holiBurstStart ?? t)
-    for (const b of s.holiBursts) {
-      const localT = elapsedBurst - b.cfg.delay
+    for (const plume of s.holiPlumes) {
+      const localT = elapsedBurst - plume.cfg.delay
       if (localT < 0 || localT > HOLI_BURST_DURATION) {
-        b.mesh.visible = false
-        b.mat.opacity = 0
+        plume.mesh.visible = false
+        plume.mat.uniforms.uOpacity.value = 0
         continue
       }
-      b.mesh.visible = true
+      plume.mesh.visible = true
       const p = localT / HOLI_BURST_DURATION // 0..1
-      const rush = 1 - Math.pow(1 - Math.min(1, p / 0.65), 3)
-      const wind = p <= 0.14 ? 0 : Math.pow((p - 0.14) / 0.86, 1.25)
 
-      b.mesh.position.set(
-        s.holiOrigin.x + b.cfg.dx * rush + b.cfg.windX * wind,
-        s.holiOrigin.y + b.cfg.dy * rush - wind * 0.03,
-        s.holiOrigin.z + b.cfg.dz * rush,
-      )
-      b.mesh.rotation.z = b.cfg.rot * rush - wind * 0.18
-      const sc = 0.30 + (b.cfg.maxScale - 0.30) * rush + wind * 0.18
-      b.mesh.scale.set(sc, sc, 1)
+      // Apparition douce (0 -> 0.28), maintien vaporeux (0.28 -> 0.58), dissipation (0.58 -> 1.0)
+      const inK = Math.min(1, p / 0.28)
+      const inEase = 1 - Math.pow(1 - inK, 2.2)
+      const outK = p <= 0.56 ? 0 : (p - 0.56) / 0.44
+      const outFade = 1 - Math.pow(outK, 1.35)
 
-      const inFade = Math.min(1, p / 0.10)
-      const outFade = p < 0.42 ? 1 : Math.pow(1 - (p - 0.42) / 0.58, 1.2)
-      b.mat.opacity = b.cfg.maxOp * inFade * outFade
+      const dissolve = (1 - inEase) * 0.42 + Math.pow(outK, 1.1) * 0.72
+      const sc = 0.86 + 0.16 * (1 - Math.pow(1 - Math.min(1, p / 0.6), 2))
+
+      plume.mesh.position.copy(plume.origin)
+      plume.mesh.scale.set(sc, sc, 1)
+      plume.mat.uniforms.uTime.value = t
+      plume.mat.uniforms.uOpacity.value = plume.cfg.maxOp * inEase * outFade * fadeIn
+      plume.mat.uniforms.uDissolve.value = dissolve
     }
 
-    // Dérive franche au vent vers la droite + disparition des particules autour de 2,5 s
+    // Les particules de poudre restent strictement en place et disparaissent en douceur
     const pBrick = ctx.bricks.get('poudre-particules')
-    if (pBrick) {
-      if (elapsedBurst < 0.1) {
-        pBrick.object3d.position.set(0, 0, 0)
-      } else if (elapsedBurst < HOLI_BURST_DURATION) {
-        const w = Math.max(0, (elapsedBurst - 0.35) / (HOLI_BURST_DURATION - 0.35))
-        pBrick.object3d.position.set(Math.pow(w, 1.2) * 0.78, -w * 0.02, 0)
-      }
-    }
-    if (!s.holiParticlesHidden && elapsedBurst >= 2.15) {
+    if (pBrick) pBrick.object3d.position.set(0, 0, 0)
+    if (!s.holiParticlesHidden && elapsedBurst >= 2.0) {
       s.holiParticlesHidden = true
       ctx.bricks.hide('poudre-particules')
     }
