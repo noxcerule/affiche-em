@@ -97,8 +97,9 @@ export default defineConfig(({mode}) => ({
   // The student zone is served as-is (fetched at runtime, never bundled).
   publicDir: 'experience',
   server: {
-    host: true,
-    port: 5173,
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true,
   },
   preview: {
     host: true,

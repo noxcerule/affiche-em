@@ -5,7 +5,7 @@
   "description": "Template WebAR : affiche sérigraphiée × réalité augmentée (8th Wall + three.js)",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 3000",
     "dev:http": "vite --port 5174",
     "dev:https": "vite --mode https",
     "build": "vite build",
