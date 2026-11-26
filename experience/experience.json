@@ -1,27 +1,70 @@
 {
   "$schema": "../core/schema/experience.schema.json",
-  "//": "EXEMPLE 1 — Les typons qui se décollent. Une seule brique « layers » : un PNG transparent par couleur imprimée, dans l'ordre d'impression (le premier est collé au papier).",
-  "title": "Affiche démo — typons",
+  "//": "Expérience AR « Les fêtes indiennes » : l'affiche complète apparaît par-dessus la cible imprimée (img-0031), avec une brève explosion de poudre de Holi vers l'écran, la flamme/lanternes de Diwali et les étoiles.",
+  "title": "Les fêtes indiennes — Diwali & Holi",
   "author": "DNMade 2 Numérique",
   "onLost": "hide",
-  "theme": { "color": "#ff2d87", "textColor": "#ffffff", "font": "Space Grotesk" },
+  "replayOnFound": true,
+  "theme": {
+    "color": "#e91e63",
+    "textColor": "#ffffff",
+    "font": "Space Grotesk"
+  },
+  "behaviors": ["fetes-indiennes"],
   "bricks": [
     {
-      "//": "spread = écart entre deux couches (en largeur d'affiche : 0.06 = 6 %). burst = les couches partent à plat puis se décollent une à une. float = léger flottement.",
-      "id": "typons",
+      "//": "L'affiche complète qui apparaît en AR par-dessus la cible imprimée",
+      "id": "affiche",
       "type": "layers",
       "trigger": "found",
       "appear": "fade",
-      "duration": 400,
+      "duration": 450,
+      "x": 0.5,
+      "y": 0.5,
+      "z": 0.008,
+      "width": 1.05,
+      "spread": 0,
+      "burst": false,
       "layers": [
-        { "src": "assets/demo/typon-1-jaune.png", "blend": "multiply" },
-        { "src": "assets/demo/typon-2-rose.png", "blend": "multiply" },
-        { "src": "assets/demo/typon-3-bleu.png", "blend": "multiply" },
-        { "src": "assets/demo/typon-4-noir.png" }
-      ],
-      "spread": 0.06,
-      "burst": { "duration": 1400, "stagger": 250 },
-      "float": 0.01
+        { "src": "assets/affiche-fond.png" }
+      ]
+    },
+    {
+      "//": "Explosion de poudre de Holi jetée vers l'écran (~2,5 s) juste au-dessus du texte",
+      "id": "poudre-particules",
+      "type": "particles",
+      "trigger": "found",
+      "appear": "pop",
+      "duration": 350,
+      "preset": "ink",
+      "direction": "out",
+      "color": ["#e91e63", "#f68c28", "#fbbd34", "#68a32c"],
+      "x": 0.72,
+      "y": 0.25,
+      "z": 0.025,
+      "density": 0.26,
+      "speed": 2.9,
+      "size": 1.15,
+      "opacity": 0.88,
+      "area": { "width": 0.36, "height": 0.42, "depth": 0.36 }
+    },
+    {
+      "//": "Fines étincelles chaudes autour de la flamme de Diwali",
+      "id": "braises-diwali",
+      "type": "particles",
+      "trigger": "found",
+      "appear": "fade",
+      "duration": 700,
+      "preset": "sparkles",
+      "color": ["#ffd166", "#ff7096"],
+      "x": 0.2748,
+      "y": 0.2148,
+      "z": 0.05,
+      "density": 0.09,
+      "speed": 0.4,
+      "size": 0.75,
+      "opacity": 0.7,
+      "area": { "width": 0.22, "height": 0.24, "depth": 0.06 }
     }
   ]
 }
