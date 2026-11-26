@@ -1,0 +1,4 @@
+Cible de l'affiche « img-0031 » — générée le 26/11/2026 18:12:52
+
+Dépose TOUS ces fichiers dans experience/target/ de ton projet (remplace les fichiers de même nom).
+Reconnaissance : faible (1583 points d'accroche, conseillé ≥ 18000).
